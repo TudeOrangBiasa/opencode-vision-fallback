@@ -30,7 +30,7 @@ flowchart LR
     subgraph Plugin
         G[Call vision model<br/>mimo-v2.5]
         H[Get text description]
-        I[Replace image part<br/>with [Image: ...] text]
+        I[Replace image part<br/>with description text]
     end
 
     subgraph LLM
@@ -68,23 +68,19 @@ sequenceDiagram
     participant V as Vision Model
     participant M as Main Model
 
-    rect rgb(255, 200, 200)
     Note over U,M: WITHOUT plugin
     U->>O: paste image
     O->>M: ERROR: model does not support image input
     M-->>U: "I can't see the image"
-    end
 
-    rect rgb(200, 255, 200)
     Note over U,M: WITH plugin
     U->>O: paste image
     O->>P: messages.transform hook
     P->>V: describe this image (mimo-v2.5)
     V-->>P: text description
-    P->>O: replace image with [Image: ...]
+    P->>O: replace image with description text
     O->>M: text description only
     M-->>U: reasoning based on image content
-    end
 ```
 
 ## Why
