@@ -1,7 +1,7 @@
 # opencode-vision-fallback
 
 <p align="center">
-  <img src="assets/banner.png" alt="opencode-vision-fallback banner" width="800">
+  <img src="assets/banner.jpg" alt="opencode-vision-fallback banner" width="800">
 </p>
 
 Auto-describe images via a vision model when the active model lacks vision support.
