@@ -4,6 +4,11 @@
   "description": "OpenCode plugin: auto-describe images via a vision model when the active model lacks vision support.",
   "type": "module",
   "license": "MIT",
+  "author": "TudeOrangBiasa",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TudeOrangBiasa/opencode-vision-fallback.git"
+  },
   "keywords": [
     "opencode",
     "opencode-plugin",

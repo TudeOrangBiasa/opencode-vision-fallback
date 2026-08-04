@@ -11,6 +11,82 @@ When you paste/drop an image into an OpenCode session whose active model can't r
 
 No manual model switching. No "this model does not support image input" errors.
 
+## Pipeline
+
+```mermaid
+flowchart LR
+    subgraph User
+        A[Paste / drop image]
+    end
+
+    subgraph OpenCode
+        B[Message prepared<br/>with FilePart image]
+        C{Hook:<br/>experimental.chat<br/>.messages.transform}
+        D{Image part<br/>found?}
+        E[Messages converted<br/>to model messages]
+        F[unsupportedParts<br/>would strip image]
+    end
+
+    subgraph Plugin
+        G[Call vision model<br/>mimo-v2.5]
+        H[Get text description]
+        I[Replace image part<br/>with [Image: ...] text]
+    end
+
+    subgraph LLM
+        J[Main model<br/>deepseek-v4-flash]
+    end
+
+    A --> B --> C --> D
+    D -- "yes" --> G --> H --> I --> E
+    D -- "no" --> E
+    E --> F -. "no images left to strip" .-> J
+```
+
+### Step-by-step
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. User pastes image → OpenCode adds FilePart (image/png)   │
+│ 2. Hook fires (experimental.chat.messages.transform)        │
+│ 3. Plugin detects image part                                 │
+│ 4. Plugin calls vision model (mimo-v2.5) via API             │
+│ 5. Vision model returns text description                     │
+│ 6. Plugin replaces image part with [Image: ...] text part    │
+│ 7. Messages converted → no images left to strip              │
+│ 8. Main model (deepseek-v4-flash) receives text description  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### With vs without the plugin
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant O as OpenCode
+    participant P as Plugin
+    participant V as Vision Model
+    participant M as Main Model
+
+    rect rgb(255, 200, 200)
+    Note over U,M: WITHOUT plugin
+    U->>O: paste image
+    O->>M: ERROR: model does not support image input
+    M-->>U: "I can't see the image"
+    end
+
+    rect rgb(200, 255, 200)
+    Note over U,M: WITH plugin
+    U->>O: paste image
+    O->>P: messages.transform hook
+    P->>V: describe this image (mimo-v2.5)
+    V-->>P: text description
+    P->>O: replace image with [Image: ...]
+    O->>M: text description only
+    M-->>U: reasoning based on image content
+    end
+```
+
 ## Why
 
 Many strong coding models (`deepseek-v4-flash`, GLM, Haiku) don't support image input. Without a fallback, OpenCode replaces pasted images with an error string (`ERROR: Cannot read image...`), and the model has no idea what you showed it.
