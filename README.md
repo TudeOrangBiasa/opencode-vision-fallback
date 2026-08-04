@@ -11,6 +11,12 @@ When you paste/drop an image into an OpenCode session whose active model can't r
 
 No manual model switching. No "this model does not support image input" errors.
 
+## Why
+
+Many strong coding models (`deepseek-v4-flash`, GLM, Haiku) don't support image input. Without a fallback, OpenCode replaces pasted images with an error string (`ERROR: Cannot read image...`), and the model has no idea what you showed it.
+
+This plugin solves that by giving the model a **text description** of the image instead — so the main model can reason about the image without needing vision capability.
+
 ## Install
 
 Add the plugin to your `opencode.json`:
@@ -68,6 +74,86 @@ The plugin looks for the key in this order:
 
 The `auth.json` path is `~/.local/share/opencode/auth.json`, overridable via `OPENCODE_AUTH_FILE`.
 
+## How it works
+
+### The problem in OpenCode
+
+OpenCode's provider transform (`packages/opencode/src/provider/transform.ts`) has an `unsupportedParts()` function. When the active model's `capabilities.input` doesn't include `image`, it **replaces image parts with error text** before the request reaches the LLM:
+
+```
+ERROR: Cannot read "clipboard" (this model does not support image input). Inform the user.
+```
+
+This happens at the provider layer — so by the time the model sees the message, the image is already gone.
+
+### The fix: intercept before the transform
+
+This plugin hooks into OpenCode's `experimental.chat.messages.transform` plugin hook. In the session pipeline (`packages/opencode/src/session/prompt.ts`), this hook runs:
+
+```
+messages prepared
+  → plugin.trigger("experimental.chat.messages.transform", ...)   ← plugin runs here
+  → MessageV2.toModelMessagesEffect(msgs, model)                  ← images get stripped here
+```
+
+The plugin mutates `output.messages` **in place** — replacing each image `FilePart` with a text `Part` that carries the vision model's description. When `unsupportedParts()` later runs, there are no image parts left to strip.
+
+### Message format
+
+OpenCode v2 message parts use the `FilePart` schema for attachments:
+
+```ts
+type FilePart = {
+  type: "file"
+  mime: string        // e.g. "image/png"
+  filename?: string
+  url: string         // data: URL or file path
+  source?: FilePartSource
+}
+```
+
+The plugin matches parts where `type === "file"` and `mime` starts with the configured `mime_prefix` (default `image/`).
+
+### Vision call
+
+For each matched image, the plugin makes an OpenAI-compatible chat completion request:
+
+```
+POST {base_url}/chat/completions
+{
+  "model": "mimo-v2.5",
+  "messages": [{
+    "role": "user",
+    "content": [
+      { "type": "text", "text": "<prompt>" },
+      { "type": "image_url", "image_url": { "url": "<image url>" } }
+    ]
+  }],
+  "max_tokens": 1000
+}
+```
+
+The returned description replaces the image part:
+
+```ts
+msg.parts[idx] = {
+  type: "text",
+  text: `[Image: ${description}]`
+}
+```
+
+The main model then receives the description as plain text.
+
+## OpenCode features used
+
+| Feature | Where |
+|---------|-------|
+| **Plugin hook** `experimental.chat.messages.transform` | `packages/opencode/src/session/prompt.ts` — runs after messages are prepared, before LLM dispatch |
+| **Plugin options** (`PluginOptions` second arg) | `packages/opencode/src/plugin/index.ts` — `server(input, load.options)` |
+| **Message V2 schema** (`FilePart`) | `packages/schema/src/v1/session.ts` — `type: "file"`, `mime`, `url` fields |
+| **Structured logging** (`client.app.log`) | `client.app.log({ body: { service, level, message } })` — goes to `opencode.log`, not the TUI |
+| **Auth storage** | `~/.local/share/opencode/auth.json` — provider key lookup |
+
 ## Logging
 
 Logs go to OpenCode's structured log (`~/.local/share/opencode/log/opencode.log`) tagged `service: "vision-fallback"` — nothing prints into the TUI chat.
@@ -78,9 +164,14 @@ level=INFO message="image replaced with text description"
 level=INFO message="processed 1 image(s) via vision model"
 ```
 
-## How it works
+## Failure behavior
 
-Uses OpenCode's `experimental.chat.messages.transform` hook, which runs after messages are prepared but before they're sent to the LLM. The plugin mutates `output.messages` in place, replacing image `FilePart`s with text `Part`s carrying the vision description.
+- **No API key** → image left for main model (degrades to current OpenCode behavior, logs a warning)
+- **Vision API error** → image left untouched, error logged
+- **Timeout** → aborts after `timeout_ms`, image left untouched
+- **Unknown mime** → not processed
+
+The plugin never breaks the main pipeline — all failures degrade gracefully.
 
 ## License
 
