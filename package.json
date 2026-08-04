@@ -23,7 +23,8 @@
     "src"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "publish:gh": "GH_PACKAGES_TOKEN=${GH_PACKAGES_TOKEN:-$(gh auth token)} bash scripts/publish-github-packages.sh"
   },
   "peerDependencies": {
     "@opencode-ai/plugin": ">=1.0.0"
