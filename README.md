@@ -13,34 +13,45 @@ No manual model switching. No "this model does not support image input" errors.
 
 ## Pipeline
 
-```mermaid
-flowchart LR
-    subgraph User
-        A[Paste / drop image]
-    end
-
-    subgraph OpenCode
-        B[Message prepared<br/>with FilePart image]
-        C{Hook:<br/>experimental.chat<br/>.messages.transform}
-        D{Image part<br/>found?}
-        E[Messages converted<br/>to model messages]
-        F[unsupportedParts<br/>would strip image]
-    end
-
-    subgraph Plugin
-        G[Call vision model<br/>mimo-v2.5]
-        H[Get text description]
-        I[Replace image part<br/>with description text]
-    end
-
-    subgraph LLM
-        J[Main model<br/>deepseek-v4-flash]
-    end
-
-    A --> B --> C --> D
-    D -- "yes" --> G --> H --> I --> E
-    D -- "no" --> E
-    E --> F -. "no images left to strip" .-> J
+```
+┌─────────────┐
+│  User        │
+│  paste/drop  │
+│  image       │
+└──────┬──────┘
+       ▼
+┌─────────────┐     ┌──────────────────────────┐
+│  OpenCode   │     │  Plugin                   │
+│             │     │                           │
+│  message    │────▶│  hook: messages.transform │
+│  with image │     │                           │
+│  FilePart   │     │  image part found?        │
+└──────┬──────┘     └────────────┬─────────────┘
+       │                         │ yes
+       │                         ▼
+       │              ┌──────────────────────────┐
+       │              │  call vision model       │
+       │              │  (mimo-v2.5)             │
+       │              └────────────┬─────────────┘
+       │                           ▼
+       │              ┌──────────────────────────┐
+       │              │  get text description    │
+       │              └────────────┬─────────────┘
+       │                           ▼
+       │              ┌──────────────────────────┐
+       │              │  replace image part      │
+       │              │  with description text   │
+       │              └────────────┬─────────────┘
+       │                           │
+       ▼                           ▼
+┌──────────────────────────────────────────────┐
+│  messages converted → no images left to strip │
+└──────────────────────┬───────────────────────┘
+                       ▼
+┌──────────────────────────────────────────────┐
+│  main model (deepseek-v4-flash)               │
+│  receives text description                    │
+└──────────────────────────────────────────────┘
 ```
 
 ### Step-by-step
