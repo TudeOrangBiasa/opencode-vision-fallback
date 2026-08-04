@@ -1,0 +1,26 @@
+{
+  "name": "opencode-vision-fallback",
+  "version": "0.1.0",
+  "description": "OpenCode plugin: auto-describe images via a vision model when the active model lacks vision support.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "vision",
+    "multimodal",
+    "image"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.0.0"
+  }
+}
