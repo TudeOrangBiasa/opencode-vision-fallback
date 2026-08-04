@@ -1,5 +1,9 @@
 # opencode-vision-fallback
 
+<p align="center">
+  <img src="assets/banner.png" alt="opencode-vision-fallback banner" width="800">
+</p>
+
 Auto-describe images via a vision model when the active model lacks vision support.
 
 When you paste/drop an image into an OpenCode session whose active model can't read images (e.g. `deepseek-v4-flash`), this plugin transparently:
